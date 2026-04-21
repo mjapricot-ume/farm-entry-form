@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>新井ファーム 入場受付</title>
+  <style>
+    /* ===== 全体のスタイル ===== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #f0f4f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px 16px 40px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 20px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    /* ===== ヘッダー ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header .farm-icon {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a3a1a;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* ===== 各入力項目 ===== */
+    .field {
+      margin-bottom: 20px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .field label .required {
+      color: #e05555;
+      margin-left: 4px;
+    }
+
+    /* テキスト入力 */
+    .field input[type="text"] {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid #dde5dd;
+      border-radius: 10px;
+      font-size: 16px;
+      color: #222;
+      background: #fafcfa;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .field input[type="text"]:focus {
+      outline: none;
+      border-color: #3d8b3d;
+      background: white;
+    }
+
+    /* 自動記録の表示欄 */
+    .auto-field {
+      background: #f5f8f5;
+      border: 1.5px solid #dde5dd;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 16px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .auto-field .auto-badge {
+      font-size: 11px;
+      background: #3d8b3d;
+      color: white;
+      padding: 2px 7px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* 訪問理由のボタン */
+    .reason-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .reason-btn {
+      padding: 14px 8px;
+      border: 1.5px solid #dde5dd;
+      border-radius: 10px;
+      background: #fafcfa;
+      font-size: 15px;
+      color: #444;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .reason-btn.selected {
+      background: #3d8b3d;
+      border-color: #3d8b3d;
+      color: white;
+      font-weight: 600;
+    }
+
+    /* ===== ドラムスクロール式退場時刻ピッカー ===== */
+    .drum-picker-wrapper {
+      border: 1.5px solid #dde5dd;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fafcfa;
+    }
+
+    .drum-picker-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      height: 180px;
+      overflow: hidden;
+      background: #fafcfa;
+    }
+
+    /* 選択中エリアのハイライト */
+    .drum-picker-container::before,
+    .drum-picker-container::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .drum-picker-container::before {
+      top: 0;
+      background: linear-gradient(to bottom, rgba(250,252,250,0.95), rgba(250,252,250,0));
+    }
+
+    .drum-picker-container::after {
+      bottom: 0;
+      background: linear-gradient(to top, rgba(250,252,250,0.95), rgba(250,252,250,0));
+    }
+
+    /* 選択中アイテムの枠線 */
+    .drum-selection-bar {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 48px;
+      border-top: 2px solid #3d8b3d;
+      border-bottom: 2px solid #3d8b3d;
+      border-radius: 4px;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .drum-columns {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      z-index: 3;
+    }
+
+    .drum-column {
+      width: 80px;
+      height: 180px;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+
+    .drum-column:active {
+      cursor: grabbing;
+    }
+
+    .drum-inner {
+      transition: transform 0.15s ease-out;
+    }
+
+    .drum-item {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 500;
+      color: #888;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .drum-item.center {
+      color: #1a3a1a;
+      font-weight: 700;
+      font-size: 24px;
+    }
+
+    .drum-separator {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a3a1a;
+      padding: 0 4px;
+      z-index: 3;
+    }
+
+    .drum-selected-display {
+      text-align: center;
+      padding: 10px;
+      font-size: 14px;
+      color: #3d8b3d;
+      font-weight: 600;
+      border-top: 1px solid #eef2ee;
+    }
+
+    /* ===== 送信ボタン ===== */
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: #3d8b3d;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      letter-spacing: 0.03em;
+      transition: background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .submit-btn:active {
+      background: #2d6b2d;
+    }
+
+    .submit-btn:disabled {
+      background: #aaa;
+      cursor: default;
+    }
+
+    /* ===== 確認画面 ===== */
+    #confirm-screen {
+      display: none;
+      text-align: center;
+    }
+
+    .confirm-icon {
+      font-size: 60px;
+      margin-bottom: 16px;
+    }
+
+    .confirm-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a3a1a;
+      margin-bottom: 8px;
+    }
+
+    .confirm-sub {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .confirm-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      margin-bottom: 24px;
+    }
+
+    .confirm-table tr {
+      border-bottom: 1px solid #eef2ee;
+    }
+
+    .confirm-table td {
+      padding: 11px 8px;
+      font-size: 14px;
+    }
+
+    .confirm-table td:first-child {
+      color: #666;
+      font-weight: 600;
+      width: 45%;
+    }
+
+    .confirm-table td:last-child {
+      color: #222;
+    }
+
+    .confirm-back-btn {
+      display: inline-block;
+      padding: 12px 32px;
+      border: 1.5px solid #3d8b3d;
+      border-radius: 10px;
+      color: #3d8b3d;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      background: white;
+    }
+
+    /* ===== エラーメッセージ ===== */
+    .error-msg {
+      font-size: 12px;
+      color: #e05555;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .field.has-error input,
+    .field.has-error .drum-picker-wrapper {
+      border-color: #e05555;
+    }
+
+    .field.has-error .error-msg {
+      display: block;
+    }
+
+    /* ===== 送信中スピナー ===== */
+    .sending-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.8);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 16px;
+      color: #3d8b3d;
+      font-weight: 600;
+    }
+
+    .sending-overlay.show {
+      display: flex;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #dde5dd;
+      border-top-color: #3d8b3d;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 送信中オーバーレイ -->
+<div class="sending-overlay" id="sending-overlay">
+  <div class="spinner"></div>
+  <span>送信中...</span>
+</div>
+
+<div class="container">
+
+  <!-- ===== フォーム画面 ===== -->
+  <div id="form-screen">
+    <div class="header">
+      <div class="farm-icon">🐷</div>
+      <h1>新井ファーム</h1>
+      <p>入場受付フォーム</p>
+    </div>
+
+    <!-- お名前 -->
+    <div class="field" id="field-name">
+      <label>お名前<span class="required">*</span></label>
+      <input type="text" id="input-name" placeholder="例：田中 太郎" autocomplete="name">
+      <div class="error-msg">お名前を入力してください</div>
+    </div>
+
+    <!-- 会社名・所属 -->
+    <div class="field" id="field-company">
+      <label>会社名・所属<span class="required">*</span></label>
+      <input type="text" id="input-company" placeholder="例：〇〇動物病院、個人の場合は「個人」">
+      <div class="error-msg">会社名・所属を入力してください</div>
+    </div>
+
+    <!-- 訪問理由 -->
+    <div class="field" id="field-reason">
+      <label>訪問理由<span class="required">*</span></label>
+      <div class="reason-buttons">
+        <button class="reason-btn" data-value="巡回診療">🩺 巡回診療</button>
+        <button class="reason-btn" data-value="面談・打合せ">💬 面談・打合せ</button>
+        <button class="reason-btn" data-value="配達・納品">📦 配達・納品</button>
+        <button class="reason-btn" data-value="検査・採血">🔬 検査・採血</button>
+        <button class="reason-btn" data-value="作業・施工">🔧 作業・施工</button>
+        <button class="reason-btn" data-value="その他">📝 その他</button>
+      </div>
+      <div class="error-msg">訪問理由を選択してください</div>
+    </div>
+
+    <!-- 入場日（自動） -->
+    <div class="field">
+      <label>入場日<span class="auto-badge" style="margin-left:8px;font-size:11px;background:#3d8b3d;color:white;padding:2px 7px;border-radius:20px;">自動記録</span></label>
+      <div class="auto-field">
+        <span id="display-date">取得中...</span>
+      </div>
+    </div>
+
+    <!-- 入場時刻（自動） -->
+    <div class="field">
+      <label>入場時刻<span class="auto-badge" style="margin-left:8px;font-size:11px;background:#3d8b3d;color:white;padding:2px 7px;border-radius:20px;">自動記録</span></label>
+      <div class="auto-field">
+        <span id="display-time">取得中...</span>
+      </div>
+    </div>
+
+    <!-- 退場時刻（ドラムスクロール） -->
+    <div class="field" id="field-exit">
+      <label>退場予定時刻<span class="required">*</span></label>
+      <div class="drum-picker-wrapper">
+        <div class="drum-picker-container">
+          <div class="drum-selection-bar"></div>
+          <div class="drum-columns">
+            <!-- 時間列 -->
+            <div class="drum-column" id="drum-hour">
+              <div class="drum-inner" id="drum-hour-inner"></div>
+            </div>
+            <div class="drum-separator">:</div>
+            <!-- 分列 -->
+            <div class="drum-column" id="drum-minute">
+              <div class="drum-inner" id="drum-minute-inner"></div>
+            </div>
+          </div>
+        </div>
+        <div class="drum-selected-display" id="drum-display">退場予定時刻を選択してください</div>
+      </div>
+      <div class="error-msg">退場予定時刻を選択してください</div>
+    </div>
+
+    <!-- 送信ボタン -->
+    <button class="submit-btn" id="submit-btn" onclick="handleSubmit()">送信する</button>
+  </div>
+
+  <!-- ===== 確認画面 ===== -->
+  <div id="confirm-screen">
+    <div class="confirm-icon">✅</div>
+    <div class="confirm-title">送信が完了しました</div>
+    <div class="confirm-sub">
+      入場記録が登録されました。<br>
+      農場内でのご安全をお祈りします。
+    </div>
+    <table class="confirm-table" id="confirm-table"></table>
+    <button class="confirm-back-btn" onclick="resetForm()">別の方の受付はこちら</button>
+  </div>
+
+</div>
+
+<script>
+  // ===== GASのURLをここに設定する =====
+  // デプロイ後にこのURLを書き換えてください
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbz3MEQvmL1il_FsfpJvAautU69DA6T2wk1Iwyzc5EzciMti8sp6n8qz8S_O8ZMvaqtG/exec';
+
+  // ===== 入場日時の自動表示 =====
+  let entryDate = '';
+  let entryTime = '';
+
+  function updateEntryDateTime() {
+    const now = new Date();
+
+    // 日付：YYYY年MM月DD日（曜日）形式
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const w = weekdays[now.getDay()];
+    entryDate = `${y}/${m}/${d}`;
+    document.getElementById('display-date').textContent = `${y}年${m}月${d}日（${w}）`;
+
+    // 時刻：HH:MM形式
+    const h = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    entryTime = `${h}:${min}`;
+    document.getElementById('display-time').textContent = `${h}:${min}`;
+  }
+
+  // ページ読み込み時に記録、以後1分ごとに更新
+  updateEntryDateTime();
+  setInterval(updateEntryDateTime, 60000);
+
+  // ===== 訪問理由のボタン選択 =====
+  let selectedReason = '';
+
+  document.querySelectorAll('.reason-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // 全ボタンの選択解除
+      document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('selected'));
+      // クリックしたボタンを選択状態に
+      btn.classList.add('selected');
+      selectedReason = btn.dataset.value;
+      // エラー表示を消す
+      document.getElementById('field-reason').classList.remove('has-error');
+    });
+  });
+
+  // ===== ドラムスクロールピッカー =====
+  // 時間リスト（6〜22時）
+  const hours = [];
+  for (let h = 6; h <= 22; h++) {
+    hours.push(String(h).padStart(2, '0'));
+  }
+
+  // 分リスト（00,15,30,45）
+  const minutes = ['00', '15', '30', '45'];
+
+  // 現在選択中のインデックス
+  let selectedHourIndex = 6;  // 初期値：12時
+  let selectedMinuteIndex = 0; // 初期値：00分
+
+  const ITEM_HEIGHT = 48; // 1アイテムの高さ（px）
+  const PADDING_ITEMS = 2; // 上下のパディング用空白アイテム数
+
+  // ドラムの中身を生成する関数
+  function buildDrum(innerEl, items, selectedIndex) {
+    innerEl.innerHTML = '';
+
+    // 上部パディング
+    for (let i = 0; i < PADDING_ITEMS; i++) {
+      const div = document.createElement('div');
+      div.className = 'drum-item';
+      innerEl.appendChild(div);
+    }
+
+    // 実際のアイテム
+    items.forEach((val, i) => {
+      const div = document.createElement('div');
+      div.className = 'drum-item' + (i === selectedIndex ? ' center' : '');
+      div.textContent = val;
+      innerEl.appendChild(div);
+    });
+
+    // 下部パディング
+    for (let i = 0; i < PADDING_ITEMS; i++) {
+      const div = document.createElement('div');
+      div.className = 'drum-item';
+      innerEl.appendChild(div);
+    }
+
+    // 位置を合わせる
+    setDrumPosition(innerEl, selectedIndex);
+  }
+
+  // ドラムの表示位置を設定する
+  function setDrumPosition(innerEl, index, animate) {
+    const offset = -index * ITEM_HEIGHT;
+    if (animate) {
+      innerEl.style.transition = 'transform 0.2s ease-out';
+    } else {
+      innerEl.style.transition = 'none';
+    }
+    innerEl.style.transform = `translateY(${offset}px)`;
+  }
+
+  // 選択状態のスタイルを更新する
+  function updateDrumStyle(innerEl, items, selectedIndex) {
+    const allItems = innerEl.querySelectorAll('.drum-item');
+    allItems.forEach((el, i) => {
+      const actualIndex = i - PADDING_ITEMS;
+      el.className = 'drum-item' + (actualIndex === selectedIndex ? ' center' : '');
+    });
+  }
+
+  // 退場時刻の表示を更新する
+  function updateExitDisplay() {
+    const h = hours[selectedHourIndex];
+    const m = minutes[selectedMinuteIndex];
+    document.getElementById('drum-display').textContent = `${h}:${m}`;
+    document.getElementById('field-exit').classList.remove('has-error');
+  }
+
+  // タッチ操作でドラムスクロールを実装する
+  function setupDrumScroll(columnEl, innerEl, items, getIndex, setIndex) {
+    let startY = 0;
+    let startIndex = 0;
+    let isDragging = false;
+
+    function clampIndex(index) {
+      return Math.max(0, Math.min(items.length - 1, index));
+    }
+
+    columnEl.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      startIndex = getIndex();
+      isDragging = true;
+      innerEl.style.transition = 'none';
+    }, { passive: true });
+
+    columnEl.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const deltaY = startY - e.touches[0].clientY;
+      const deltaIndex = Math.round(deltaY / ITEM_HEIGHT);
+      const newIndex = clampIndex(startIndex + deltaIndex);
+      const currentIndex = getIndex();
+
+      if (newIndex !== currentIndex) {
+        setIndex(newIndex);
+        updateDrumStyle(innerEl, items, newIndex);
+        setDrumPosition(innerEl, newIndex, false);
+        updateExitDisplay();
+      }
+    }, { passive: true });
+
+    columnEl.addEventListener('touchend', () => {
+      isDragging = false;
+      setDrumPosition(innerEl, getIndex(), true);
+    });
+
+    // マウス操作でもスクロール可能にする（PC確認用）
+    columnEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 1 : -1;
+      const newIndex = clampIndex(getIndex() + delta);
+      setIndex(newIndex);
+      updateDrumStyle(innerEl, items, newIndex);
+      setDrumPosition(innerEl, newIndex, true);
+      updateExitDisplay();
+    }, { passive: false });
+  }
+
+  // 時間ドラムの初期化
+  const hourInner = document.getElementById('drum-hour-inner');
+  buildDrum(hourInner, hours, selectedHourIndex);
+  setupDrumScroll(
+    document.getElementById('drum-hour'),
+    hourInner,
+    hours,
+    () => selectedHourIndex,
+    (i) => { selectedHourIndex = i; }
+  );
+
+  // 分ドラムの初期化
+  const minuteInner = document.getElementById('drum-minute-inner');
+  buildDrum(minuteInner, minutes, selectedMinuteIndex);
+  setupDrumScroll(
+    document.getElementById('drum-minute'),
+    minuteInner,
+    minutes,
+    () => selectedMinuteIndex,
+    (i) => { selectedMinuteIndex = i; }
+  );
+
+  // 最初の表示を更新
+  updateExitDisplay();
+
+  // ===== バリデーション（入力チェック） =====
+  function validate() {
+    let isValid = true;
+
+    // 名前チェック
+    const nameVal = document.getElementById('input-name').value.trim();
+    if (!nameVal) {
+      document.getElementById('field-name').classList.add('has-error');
+      isValid = false;
+    } else {
+      document.getElementById('field-name').classList.remove('has-error');
+    }
+
+    // 会社名チェック
+    const companyVal = document.getElementById('input-company').value.trim();
+    if (!companyVal) {
+      document.getElementById('field-company').classList.add('has-error');
+      isValid = false;
+    } else {
+      document.getElementById('field-company').classList.remove('has-error');
+    }
+
+    // 訪問理由チェック
+    if (!selectedReason) {
+      document.getElementById('field-reason').classList.add('has-error');
+      isValid = false;
+    }
+
+    return isValid;
+  }
+
+  // ===== フォーム送信処理 =====
+  async function handleSubmit() {
+    if (!validate()) {
+      // エラーがある場合は最初のエラー箇所までスクロール
+      document.querySelector('.has-error').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    // 送信データを組み立てる
+    const now = new Date();
+    const submitDatetime = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    const exitTime = `${hours[selectedHourIndex]}:${minutes[selectedMinuteIndex]}`;
+
+    const data = {
+      submitDatetime: submitDatetime,   // 送信日時
+      name: document.getElementById('input-name').value.trim(),
+      company: document.getElementById('input-company').value.trim(),
+      reason: selectedReason,
+      entryDate: entryDate,             // 入場日
+      entryTime: entryTime,             // 入場時刻
+      exitTime: exitTime                // 退場予定時刻
+    };
+
+    // 送信中オーバーレイを表示
+    document.getElementById('sending-overlay').classList.add('show');
+    document.getElementById('submit-btn').disabled = true;
+
+    try {
+      // GASにPOSTリクエストを送信
+      await fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors', // CORSエラー回避
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      // 確認画面を表示
+      showConfirmScreen(data);
+
+    } catch (err) {
+      alert('送信に失敗しました。\nネットワーク接続を確認してから再度お試しください。');
+      document.getElementById('submit-btn').disabled = false;
+    } finally {
+      document.getElementById('sending-overlay').classList.remove('show');
+    }
+  }
+
+  // ===== 確認画面の表示 =====
+  function showConfirmScreen(data) {
+    const rows = [
+      ['お名前', data.name],
+      ['会社名・所属', data.company],
+      ['訪問理由', data.reason],
+      ['入場日', data.entryDate.replace(/\//g, '年').replace(/(\d+)$/, '$1日')],
+      ['入場時刻', data.entryTime],
+      ['退場予定時刻', data.exitTime],
+    ];
+
+    const table = document.getElementById('confirm-table');
+    table.innerHTML = rows.map(([label, value]) =>
+      `<tr><td>${label}</td><td>${value}</td></tr>`
+    ).join('');
+
+    document.getElementById('form-screen').style.display = 'none';
+    document.getElementById('confirm-screen').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+
+  // ===== フォームをリセット（別の人の受付用） =====
+  function resetForm() {
+    document.getElementById('input-name').value = '';
+    document.getElementById('input-company').value = '';
+    selectedReason = '';
+    document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('selected'));
+    selectedHourIndex = 6;
+    selectedMinuteIndex = 0;
+    buildDrum(hourInner, hours, selectedHourIndex);
+    buildDrum(minuteInner, minutes, selectedMinuteIndex);
+    updateExitDisplay();
+    updateEntryDateTime();
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('confirm-screen').style.display = 'none';
+    document.getElementById('form-screen').style.display = 'block';
+    window.scrollTo(0, 0);
+  }
+</script>
+</body>
+</html>
