@@ -92,7 +92,7 @@
       background: white;
     }
 
-    /* 自動記録の表示欄 */
+    /* 自動記録の表示欄（読み取り専用） */
     .auto-field {
       background: #f5f8f5;
       border: 1.5px solid #dde5dd;
@@ -103,6 +103,32 @@
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    /* 自動記録だが編集可能な入力欄 */
+    .auto-editable-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid #dde5dd;
+      border-radius: 10px;
+      font-size: 16px;
+      color: #333;
+      background: #f5f8f5;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .auto-editable-input:focus {
+      outline: none;
+      border-color: #3d8b3d;
+      background: white;
+    }
+
+    /* 編集ヒントテキスト */
+    .field-hint {
+      font-size: 11px;
+      color: #888;
+      margin-top: 5px;
     }
 
     /* 訪問理由のボタン */
@@ -432,20 +458,24 @@
       <div class="error-msg">訪問理由を選択してください</div>
     </div>
 
-    <!-- 入場日（自動） -->
+    <!-- 入場日（自動記録・修正可） -->
     <div class="field">
-      <label>入場日<span class="auto-badge" style="margin-left:8px;font-size:11px;background:#3d8b3d;color:white;padding:2px 7px;border-radius:20px;">自動記録</span></label>
-      <div class="auto-field">
-        <span id="display-date">取得中...</span>
-      </div>
+      <label>入場日
+        <span class="auto-badge" style="margin-left:8px;font-size:11px;background:#3d8b3d;color:white;padding:2px 7px;border-radius:20px;">自動記録</span>
+        <span style="margin-left:4px;font-size:11px;color:#888;">修正可</span>
+      </label>
+      <input type="text" id="display-date" class="auto-editable-input" placeholder="YYYY/MM/DD">
+      <div class="field-hint">✏️ 日付が違う場合は直接入力して修正できます（例：2026/04/22）</div>
     </div>
 
-    <!-- 入場時刻（自動） -->
+    <!-- 入場時刻（自動記録・修正可） -->
     <div class="field">
-      <label>入場時刻<span class="auto-badge" style="margin-left:8px;font-size:11px;background:#3d8b3d;color:white;padding:2px 7px;border-radius:20px;">自動記録</span></label>
-      <div class="auto-field">
-        <span id="display-time">取得中...</span>
-      </div>
+      <label>入場時刻
+        <span class="auto-badge" style="margin-left:8px;font-size:11px;background:#3d8b3d;color:white;padding:2px 7px;border-radius:20px;">自動記録</span>
+        <span style="margin-left:4px;font-size:11px;color:#888;">修正可</span>
+      </label>
+      <input type="text" id="display-time" class="auto-editable-input" placeholder="HH:MM">
+      <div class="field-hint">✏️ 時刻が違う場合は直接入力して修正できます（例：09:30）</div>
     </div>
 
     <!-- 退場予定時刻（ドラムスクロール） -->
@@ -493,27 +523,42 @@
   // ===== GASのURL =====
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbz3MEQvmL1il_FsfpJvAautU69DA6T2wk1Iwyzc5EzciMti8sp6n8qz8S_O8ZMvaqtG/exec';
 
-  // ===== 入場日時の自動表示 =====
+  // ===== 入場日時の自動記録（修正可） =====
   let entryDate = '';
   let entryTime = '';
+  // ユーザーが手動で編集したかどうかのフラグ
+  let entryDateModified = false;
+  let entryTimeModified = false;
 
   function updateEntryDateTime() {
     const now = new Date();
-    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
     const d = String(now.getDate()).padStart(2, '0');
-    const w = weekdays[now.getDay()];
-    entryDate = `${y}/${m}/${d}`;
-    document.getElementById('display-date').textContent = `${y}年${m}月${d}日（${w}）`;
     const h = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
-    entryTime = `${h}:${min}`;
-    document.getElementById('display-time').textContent = `${h}:${min}`;
+
+    // 手動編集されていない場合だけ自動更新する
+    if (!entryDateModified) {
+      entryDate = `${y}/${m}/${d}`;
+      document.getElementById('display-date').value = entryDate;
+    }
+    if (!entryTimeModified) {
+      entryTime = `${h}:${min}`;
+      document.getElementById('display-time').value = entryTime;
+    }
   }
 
   updateEntryDateTime();
   setInterval(updateEntryDateTime, 60000);
+
+  // 手動編集を検知してフラグを立てる
+  document.getElementById('display-date').addEventListener('input', () => {
+    entryDateModified = true;
+  });
+  document.getElementById('display-time').addEventListener('input', () => {
+    entryTimeModified = true;
+  });
 
   // ===== 訪問理由のボタン選択 =====
   let selectedReason = '';
@@ -600,15 +645,17 @@
     }, { passive: true });
 
     // タッチ移動：指の動きに合わせてなめらかに追従する
+    // passive: false にしてpreventDefaultを呼ぶことでページのスクロールを止める
     columnEl.addEventListener('touchmove', (e) => {
       if (!isDragging) return;
+      e.preventDefault(); // ドラム操作中はページをスクロールさせない
       const deltaY = e.touches[0].clientY - startY;
       const minOffset = -(items.length - 1) * ITEM_HEIGHT;
       currentOffset = Math.max(minOffset, Math.min(0, baseOffset + deltaY));
       innerEl.style.transform = `translateY(${currentOffset}px)`;
       // 最も近いアイテムをハイライト
       updateDrumStyle(innerEl, clamp(Math.round(-currentOffset / ITEM_HEIGHT)));
-    }, { passive: true });
+    }, { passive: false });
 
     // タッチ終了：最も近いアイテムにスナップ
     columnEl.addEventListener('touchend', () => {
@@ -689,13 +736,17 @@
     const submitDatetime = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
     const exitTime = `${hours[selectedHourIndex]}:${minutes[selectedMinuteIndex]}`;
 
+    // 送信時に入力欄から最新の日時を取得（手動修正に対応）
+    const finalEntryDate = document.getElementById('display-date').value.trim() || entryDate;
+    const finalEntryTime = document.getElementById('display-time').value.trim() || entryTime;
+
     const data = {
       submitDatetime,
       name: document.getElementById('input-name').value.trim(),
       company: document.getElementById('input-company').value.trim(),
       reason: selectedReason,
-      entryDate,
-      entryTime,
+      entryDate: finalEntryDate,
+      entryTime: finalEntryTime,
       exitTime
     };
 
@@ -746,6 +797,9 @@
     buildDrum(hourInner, hours, selectedHourIndex);
     buildDrum(minuteInner, minutes, selectedMinuteIndex);
     updateExitDisplay();
+    // 手動編集フラグをリセットして入場日時を現在時刻に戻す
+    entryDateModified = false;
+    entryTimeModified = false;
     updateEntryDateTime();
     document.getElementById('submit-btn').disabled = false;
     document.getElementById('confirm-screen').style.display = 'none';
