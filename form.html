@@ -105,15 +105,6 @@
       gap: 8px;
     }
 
-    .auto-field .auto-badge {
-      font-size: 11px;
-      background: #3d8b3d;
-      color: white;
-      padding: 2px 7px;
-      border-radius: 20px;
-      white-space: nowrap;
-    }
-
     /* 訪問理由のボタン */
     .reason-buttons {
       display: grid;
@@ -159,14 +150,14 @@
       background: #fafcfa;
     }
 
-    /* 選択中エリアのハイライト */
+    /* 上下のフェード */
     .drum-picker-container::before,
     .drum-picker-container::after {
       content: '';
       position: absolute;
       left: 0;
       right: 0;
-      height: 60px;
+      height: 66px;
       z-index: 2;
       pointer-events: none;
     }
@@ -199,7 +190,6 @@
     .drum-columns {
       display: flex;
       align-items: center;
-      gap: 0;
       z-index: 3;
     }
 
@@ -216,7 +206,9 @@
     }
 
     .drum-inner {
-      transition: transform 0.15s ease-out;
+      /* 上下にパディングを入れることで先頭・末尾アイテムも中央に来るようにする */
+      padding-top: 66px;
+      padding-bottom: 66px;
     }
 
     .drum-item {
@@ -456,7 +448,7 @@
       </div>
     </div>
 
-    <!-- 退場時刻（ドラムスクロール） -->
+    <!-- 退場予定時刻（ドラムスクロール） -->
     <div class="field" id="field-exit">
       <label>退場予定時刻<span class="required">*</span></label>
       <div class="drum-picker-wrapper">
@@ -498,8 +490,7 @@
 </div>
 
 <script>
-  // ===== GASのURLをここに設定する =====
-  // デプロイ後にこのURLを書き換えてください
+  // ===== GASのURL =====
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbz3MEQvmL1il_FsfpJvAautU69DA6T2wk1Iwyzc5EzciMti8sp6n8qz8S_O8ZMvaqtG/exec';
 
   // ===== 入場日時の自動表示 =====
@@ -508,8 +499,6 @@
 
   function updateEntryDateTime() {
     const now = new Date();
-
-    // 日付：YYYY年MM月DD日（曜日）形式
     const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -517,15 +506,12 @@
     const w = weekdays[now.getDay()];
     entryDate = `${y}/${m}/${d}`;
     document.getElementById('display-date').textContent = `${y}年${m}月${d}日（${w}）`;
-
-    // 時刻：HH:MM形式
     const h = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
     entryTime = `${h}:${min}`;
     document.getElementById('display-time').textContent = `${h}:${min}`;
   }
 
-  // ページ読み込み時に記録、以後1分ごとに更新
   updateEntryDateTime();
   setInterval(updateEntryDateTime, 60000);
 
@@ -534,135 +520,113 @@
 
   document.querySelectorAll('.reason-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      // 全ボタンの選択解除
       document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('selected'));
-      // クリックしたボタンを選択状態に
       btn.classList.add('selected');
       selectedReason = btn.dataset.value;
-      // エラー表示を消す
       document.getElementById('field-reason').classList.remove('has-error');
     });
   });
 
   // ===== ドラムスクロールピッカー =====
-  // 時間リスト（6〜22時）
+  // 時間リスト（6〜20時）※20時以降は使わないので除外
   const hours = [];
-  for (let h = 6; h <= 22; h++) {
+  for (let h = 6; h <= 20; h++) {
     hours.push(String(h).padStart(2, '0'));
   }
 
-  // 分リスト（00,15,30,45）
+  // 分リスト
   const minutes = ['00', '15', '30', '45'];
 
-  // 現在選択中のインデックス
-  let selectedHourIndex = 6;  // 初期値：12時
-  let selectedMinuteIndex = 0; // 初期値：00分
+  // 初期値：9時00分（hoursの index 3 = '09'）
+  let selectedHourIndex = 3;
+  let selectedMinuteIndex = 0;
 
-  const ITEM_HEIGHT = 48; // 1アイテムの高さ（px）
-  const PADDING_ITEMS = 2; // 上下のパディング用空白アイテム数
+  const ITEM_HEIGHT = 48; // アイテム1つの高さ（px）
 
-  // ドラムの中身を生成する関数
+  // ドラムの中身を生成する
   function buildDrum(innerEl, items, selectedIndex) {
     innerEl.innerHTML = '';
-
-    // 上部パディング
-    for (let i = 0; i < PADDING_ITEMS; i++) {
-      const div = document.createElement('div');
-      div.className = 'drum-item';
-      innerEl.appendChild(div);
-    }
-
-    // 実際のアイテム
     items.forEach((val, i) => {
       const div = document.createElement('div');
       div.className = 'drum-item' + (i === selectedIndex ? ' center' : '');
       div.textContent = val;
       innerEl.appendChild(div);
     });
-
-    // 下部パディング
-    for (let i = 0; i < PADDING_ITEMS; i++) {
-      const div = document.createElement('div');
-      div.className = 'drum-item';
-      innerEl.appendChild(div);
-    }
-
-    // 位置を合わせる
-    setDrumPosition(innerEl, selectedIndex);
+    setDrumPosition(innerEl, selectedIndex, false);
   }
 
-  // ドラムの表示位置を設定する
+  // ドラムの位置を設定する
   function setDrumPosition(innerEl, index, animate) {
-    const offset = -index * ITEM_HEIGHT;
     if (animate) {
       innerEl.style.transition = 'transform 0.2s ease-out';
     } else {
       innerEl.style.transition = 'none';
     }
-    innerEl.style.transform = `translateY(${offset}px)`;
+    innerEl.style.transform = `translateY(${-index * ITEM_HEIGHT}px)`;
   }
 
-  // 選択状態のスタイルを更新する
-  function updateDrumStyle(innerEl, items, selectedIndex) {
-    const allItems = innerEl.querySelectorAll('.drum-item');
-    allItems.forEach((el, i) => {
-      const actualIndex = i - PADDING_ITEMS;
-      el.className = 'drum-item' + (actualIndex === selectedIndex ? ' center' : '');
+  // 選択中アイテムのスタイルを更新する
+  function updateDrumStyle(innerEl, selectedIndex) {
+    innerEl.querySelectorAll('.drum-item').forEach((el, i) => {
+      el.className = 'drum-item' + (i === selectedIndex ? ' center' : '');
     });
   }
 
   // 退場時刻の表示を更新する
   function updateExitDisplay() {
-    const h = hours[selectedHourIndex];
-    const m = minutes[selectedMinuteIndex];
-    document.getElementById('drum-display').textContent = `${h}:${m}`;
+    document.getElementById('drum-display').textContent =
+      `${hours[selectedHourIndex]}:${minutes[selectedMinuteIndex]}`;
     document.getElementById('field-exit').classList.remove('has-error');
   }
 
-  // タッチ操作でドラムスクロールを実装する
+  // タッチ・スクロール操作の設定（なめらかスクロール）
   function setupDrumScroll(columnEl, innerEl, items, getIndex, setIndex) {
     let startY = 0;
-    let startIndex = 0;
+    let baseOffset = 0;
+    let currentOffset = 0;
     let isDragging = false;
 
-    function clampIndex(index) {
+    function clamp(index) {
       return Math.max(0, Math.min(items.length - 1, index));
     }
 
+    // タッチ開始：現在位置を基準に保存
     columnEl.addEventListener('touchstart', (e) => {
       startY = e.touches[0].clientY;
-      startIndex = getIndex();
+      baseOffset = -getIndex() * ITEM_HEIGHT;
+      currentOffset = baseOffset;
       isDragging = true;
       innerEl.style.transition = 'none';
     }, { passive: true });
 
+    // タッチ移動：指の動きに合わせてなめらかに追従する
     columnEl.addEventListener('touchmove', (e) => {
       if (!isDragging) return;
-      const deltaY = startY - e.touches[0].clientY;
-      const deltaIndex = Math.round(deltaY / ITEM_HEIGHT);
-      const newIndex = clampIndex(startIndex + deltaIndex);
-      const currentIndex = getIndex();
-
-      if (newIndex !== currentIndex) {
-        setIndex(newIndex);
-        updateDrumStyle(innerEl, items, newIndex);
-        setDrumPosition(innerEl, newIndex, false);
-        updateExitDisplay();
-      }
+      const deltaY = e.touches[0].clientY - startY;
+      const minOffset = -(items.length - 1) * ITEM_HEIGHT;
+      currentOffset = Math.max(minOffset, Math.min(0, baseOffset + deltaY));
+      innerEl.style.transform = `translateY(${currentOffset}px)`;
+      // 最も近いアイテムをハイライト
+      updateDrumStyle(innerEl, clamp(Math.round(-currentOffset / ITEM_HEIGHT)));
     }, { passive: true });
 
+    // タッチ終了：最も近いアイテムにスナップ
     columnEl.addEventListener('touchend', () => {
+      if (!isDragging) return;
       isDragging = false;
-      setDrumPosition(innerEl, getIndex(), true);
+      const snapped = clamp(Math.round(-currentOffset / ITEM_HEIGHT));
+      setIndex(snapped);
+      updateDrumStyle(innerEl, snapped);
+      setDrumPosition(innerEl, snapped, true);
+      updateExitDisplay();
     });
 
-    // マウス操作でもスクロール可能にする（PC確認用）
+    // マウスホイール操作（PC確認用）
     columnEl.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? 1 : -1;
-      const newIndex = clampIndex(getIndex() + delta);
+      const newIndex = clamp(getIndex() + (e.deltaY > 0 ? 1 : -1));
       setIndex(newIndex);
-      updateDrumStyle(innerEl, items, newIndex);
+      updateDrumStyle(innerEl, newIndex);
       setDrumPosition(innerEl, newIndex, true);
       updateExitDisplay();
     }, { passive: false });
@@ -672,32 +636,24 @@
   const hourInner = document.getElementById('drum-hour-inner');
   buildDrum(hourInner, hours, selectedHourIndex);
   setupDrumScroll(
-    document.getElementById('drum-hour'),
-    hourInner,
-    hours,
-    () => selectedHourIndex,
-    (i) => { selectedHourIndex = i; }
+    document.getElementById('drum-hour'), hourInner, hours,
+    () => selectedHourIndex, (i) => { selectedHourIndex = i; }
   );
 
   // 分ドラムの初期化
   const minuteInner = document.getElementById('drum-minute-inner');
   buildDrum(minuteInner, minutes, selectedMinuteIndex);
   setupDrumScroll(
-    document.getElementById('drum-minute'),
-    minuteInner,
-    minutes,
-    () => selectedMinuteIndex,
-    (i) => { selectedMinuteIndex = i; }
+    document.getElementById('drum-minute'), minuteInner, minutes,
+    () => selectedMinuteIndex, (i) => { selectedMinuteIndex = i; }
   );
 
-  // 最初の表示を更新
   updateExitDisplay();
 
-  // ===== バリデーション（入力チェック） =====
+  // ===== バリデーション =====
   function validate() {
     let isValid = true;
 
-    // 名前チェック
     const nameVal = document.getElementById('input-name').value.trim();
     if (!nameVal) {
       document.getElementById('field-name').classList.add('has-error');
@@ -706,7 +662,6 @@
       document.getElementById('field-name').classList.remove('has-error');
     }
 
-    // 会社名チェック
     const companyVal = document.getElementById('input-company').value.trim();
     if (!companyVal) {
       document.getElementById('field-company').classList.add('has-error');
@@ -715,7 +670,6 @@
       document.getElementById('field-company').classList.remove('has-error');
     }
 
-    // 訪問理由チェック
     if (!selectedReason) {
       document.getElementById('field-reason').classList.add('has-error');
       isValid = false;
@@ -727,42 +681,35 @@
   // ===== フォーム送信処理 =====
   async function handleSubmit() {
     if (!validate()) {
-      // エラーがある場合は最初のエラー箇所までスクロール
       document.querySelector('.has-error').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    // 送信データを組み立てる
     const now = new Date();
     const submitDatetime = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
     const exitTime = `${hours[selectedHourIndex]}:${minutes[selectedMinuteIndex]}`;
 
     const data = {
-      submitDatetime: submitDatetime,   // 送信日時
+      submitDatetime,
       name: document.getElementById('input-name').value.trim(),
       company: document.getElementById('input-company').value.trim(),
       reason: selectedReason,
-      entryDate: entryDate,             // 入場日
-      entryTime: entryTime,             // 入場時刻
-      exitTime: exitTime                // 退場予定時刻
+      entryDate,
+      entryTime,
+      exitTime
     };
 
-    // 送信中オーバーレイを表示
     document.getElementById('sending-overlay').classList.add('show');
     document.getElementById('submit-btn').disabled = true;
 
     try {
-      // GASにPOSTリクエストを送信
       await fetch(GAS_URL, {
         method: 'POST',
-        mode: 'no-cors', // CORSエラー回避
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-
-      // 確認画面を表示
       showConfirmScreen(data);
-
     } catch (err) {
       alert('送信に失敗しました。\nネットワーク接続を確認してから再度お試しください。');
       document.getElementById('submit-btn').disabled = false;
@@ -781,24 +728,20 @@
       ['入場時刻', data.entryTime],
       ['退場予定時刻', data.exitTime],
     ];
-
-    const table = document.getElementById('confirm-table');
-    table.innerHTML = rows.map(([label, value]) =>
-      `<tr><td>${label}</td><td>${value}</td></tr>`
-    ).join('');
-
+    document.getElementById('confirm-table').innerHTML =
+      rows.map(([label, value]) => `<tr><td>${label}</td><td>${value}</td></tr>`).join('');
     document.getElementById('form-screen').style.display = 'none';
     document.getElementById('confirm-screen').style.display = 'block';
     window.scrollTo(0, 0);
   }
 
-  // ===== フォームをリセット（別の人の受付用） =====
+  // ===== フォームをリセット =====
   function resetForm() {
     document.getElementById('input-name').value = '';
     document.getElementById('input-company').value = '';
     selectedReason = '';
     document.querySelectorAll('.reason-btn').forEach(b => b.classList.remove('selected'));
-    selectedHourIndex = 6;
+    selectedHourIndex = 3; // 9時にリセット
     selectedMinuteIndex = 0;
     buildDrum(hourInner, hours, selectedHourIndex);
     buildDrum(minuteInner, minutes, selectedMinuteIndex);
