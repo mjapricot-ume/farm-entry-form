@@ -800,15 +800,19 @@
     document.getElementById('submit-btn').disabled = true;
 
     try {
-      await fetch(GAS_URL, {
+      // GASの返事を確認し、成功の返事が来たときだけ完了画面を出す（記帳漏れ防止）
+      const res = await fetch(GAS_URL, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(data)
       });
+      const result = await res.json();
+      if (!result || result.status !== 'success') {
+        throw new Error((result && result.message) || '記録できませんでした');
+      }
       showConfirmScreen(data);
     } catch (err) {
-      alert('送信に失敗しました。\nネットワーク接続を確認してから再度お試しください。');
+      alert('送信に失敗しました。記録はまだ保存されていません。\nネットワーク接続を確認してから再度お試しください。');
       document.getElementById('submit-btn').disabled = false;
     } finally {
       document.getElementById('sending-overlay').classList.remove('show');
@@ -821,7 +825,7 @@
       ['お名前', data.name],
       ['会社名・所属', data.company],
       ['訪問理由', data.reason],
-      ['入場日', data.entryDate.replace(/\//g, '年').replace(/(\d+)$/, '$1日')],
+      ['入場日', data.entryDate.replace(/^(\d+)\/(\d+)\/(\d+)$/, '$1年$2月$3日')],
       ['入場時刻', data.entryTime],
       ['退場予定時刻', data.exitTime],
     ];
